@@ -1,34 +1,4 @@
 # -*- coding: utf-8 -*-
-
-"""
-BackupSuite Plugin
-FULL BACKUP UTILITY FOR ENIGMA2/OPENVISION
-SUPPORTS VARIOUS MODELS
-
-Original Developer: @persianpros
-GitHub: https://github.com/persianpros/BackupSuite-PLi
-
-SUPPORT FORUM: https://forums.openpli.org/
-
-This is a fully modded code of BackupSuite
-by @Lululla (2025-06-15).
-
-The plugin provides a comprehensive backup and restore solution for Enigma2-based receivers.
-It supports multiple device types (USB, MMC, HDD, Network shares, Barry Allen multi-boot),
-handles automatic device detection, backup script management, and user interaction through
-an intuitive GUI.
-
-Features include:
-- Automatic detection of mounted storage devices and network shares
-- Custom backup scripts for each device type
-- User prompts and error handling with detailed log analysis
-- Support for flashing backup images and restoring
-- Compatibility fixes for OpenPLi systems
-
-This rewrite aims to improve stability, usability, and maintainability compared to the original.
-"""
-
-from __future__ import print_function
 from os import (
     listdir,
     system as os_system,
@@ -70,15 +40,37 @@ from Screens.Screen import Screen
 from Tools.LoadPixmap import LoadPixmap
 from Tools.Directories import resolveFilename, SCOPE_PLUGINS
 
-from . import _
+from . import _, __version__, LOGFILE, VERSIONFILE, ENIGMA2VERSIONFILE, OFGWRITE_BIN
 from .findkerneldevice import *     # fallback for to compile on test develop..
 
-# Global constants
-VERSION = '3.0-r10'
-LOGFILE = "/tmp/BackupSuite.log"
-VERSIONFILE = "imageversion"
-ENIGMA2VERSIONFILE = "/tmp/enigma2version"
-OFGWRITE_BIN = "/usr/bin/ofgwrite"
+
+"""
+BackupSuite Plugin
+FULL BACKUP UTILITY FOR ENIGMA2/OPENVISION
+SUPPORTS VARIOUS MODELS
+
+Original Developer: @persianpros
+GitHub: https://github.com/persianpros/BackupSuite-PLi
+
+SUPPORT FORUM: https://forums.openpli.org/
+
+This is a fully modded code of BackupSuite
+by @Lululla (2025-06-15).
+
+The plugin provides a comprehensive backup and restore solution for Enigma2-based receivers.
+It supports multiple device types (USB, MMC, HDD, Network shares, Barry Allen multi-boot),
+handles automatic device detection, backup script management, and user interaction through
+an intuitive GUI.
+
+Features include:
+- Automatic detection of mounted storage devices and network shares
+- Custom backup scripts for each device type
+- User prompts and error handling with detailed log analysis
+- Support for flashing backup images and restoring
+- Compatibility fixes for OpenPLi systems
+
+This rewrite aims to improve stability, usability, and maintainability compared to the original.
+"""
 
 # Global variables
 autoStartTimer = None
@@ -530,7 +522,7 @@ class BackupStart(Screen):
         self.onLayoutFinish.append(self.setCustomTitle)
 
     def setCustomTitle(self):
-        self.setTitle(_("Backup Suite v{0}").format(VERSION))
+        self.setTitle(_("Backup Suite v{0}").format(__version__))
 
     def init_plugin(self):
         """
@@ -875,7 +867,7 @@ class BackupStart(Screen):
         self.session.open(WhatisNewInfo)
 
     def write_enigma2_version(self):
-        """Write the current Enigma2 version string to a file."""
+        """Write the current Enigma2 version_ string to a file."""
         try:
             from Components.About import getEnigmaVersionString
             with open(ENIGMA2VERSIONFILE, 'w') as f:
@@ -1492,7 +1484,7 @@ class BackupHelpScreen(Screen):
         self.setTitle(_("BackupSuite Help"))
         self["help_text"] = ScrollLabel()
 
-        help_content = _("BackupSuite v{0}\n\n").format(VERSION)
+        help_content = _("BackupSuite v{0}\n\n").format(__version__)
         help_content += _("Welcome to BackupSuite help.\n\n")
         help_content += _("Device List:\n")
         help_content += _("• Use UP/DOWN buttons to navigate through backup options\n")
@@ -1607,7 +1599,7 @@ def Plugins(path, **kwargs):
     global plugin_path
     plugin_path = path
     description = "{0}, {1}".format(
-        _('Backup and restore your image'), VERSION)
+        _('Backup and restore your image'), __version__)
     return [
         PluginDescriptor(
             name="BackupSuite",

@@ -9,4 +9,4 @@ Package: enigma2-plugin-extensions-backupsuite
 Priority: optional
 Section: base
 Source: enigma2-plugin-extensions-backupsuite.bb
-Version: 3.0-r10
+Version: 3.0-r11

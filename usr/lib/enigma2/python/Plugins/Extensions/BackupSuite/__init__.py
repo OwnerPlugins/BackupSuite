@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function  # Per compatibilità print
+from __future__ import print_function
 from Components.Language import language
 from Tools.Directories import resolveFilename, SCOPE_PLUGINS
 import gettext
@@ -8,6 +8,11 @@ import os
 
 PluginLanguageDomain = "BackupSuite"
 PluginLanguagePath = "Extensions/BackupSuite/locale"
+__version__ = "3.0-r11"
+LOGFILE = "/tmp/BackupSuite.log"
+VERSIONFILE = "imageversion"
+ENIGMA2VERSIONFILE = "/tmp/enigma2version"
+OFGWRITE_BIN = "/usr/bin/ofgwrite"
 
 
 def localeInit():

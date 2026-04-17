@@ -1,12 +1,15 @@
-<!-- Icona plugin -->
 <p align="center">
   <img src="https://github.com/Belfagor2005/BackupSuite/blob/main/usr/lib/enigma2/python/Plugins/Extensions/BackupSuite/plugin.png?raw=true" height="120">
 </p>
-![](https://komarev.com/ghpvc/?username=Belfagor2005)
-![Version](https://img.shields.io/badge/version-3.0-r11-blue)
-![Python](https://img.shields.io/badge/Python3-only-orange.svg)
-[![Python package](https://github.com/Belfagor2005/BackupSuite/actions/workflows/pylint.yml/badge.svg)](https://github.com/Belfagor2005/BackupSuite/actions/workflows/pylint.yml)
 
+<p align="center">
+  <img src="https://komarev.com/ghpvc/?username=Belfagor2005" />
+  <img src="https://img.shields.io/badge/version-3.0--r11-blue" />
+  <img src="https://img.shields.io/badge/Python-3--only-orange" />
+  <a href="https://github.com/Belfagor2005/BackupSuite/actions/workflows/pylint.yml">
+    <img src="https://github.com/Belfagor2005/BackupSuite/actions/workflows/pylint.yml/badge.svg" />
+  </a>
+</p>
 ## 📺 Screenshots
 
 ### **Main**

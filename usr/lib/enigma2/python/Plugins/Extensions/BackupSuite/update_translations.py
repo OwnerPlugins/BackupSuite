@@ -6,18 +6,6 @@ import re
 import subprocess
 from xml.etree import ElementTree as ET
 
-"""
-###########################################################
-BackupSuite for Enigma2
-Created by: Lululla
-###########################################################
-Last Updated: 2026-01-31
-Credits: Lululla (modifications)
-Homepage: www.corvoboys.org
-          www.linuxsat-support.com
-###########################################################
-"""
-
 PLUGIN_NAME = "BackupSuite"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCALE_DIR = os.path.join(PLUGIN_DIR, "locale")

@@ -10,6 +10,7 @@
     <img src="https://github.com/Belfagor2005/BackupSuite/actions/workflows/pylint.yml/badge.svg" />
   </a>
 </p>
+
 ## 📺 Screenshots
 
 ### **Main**

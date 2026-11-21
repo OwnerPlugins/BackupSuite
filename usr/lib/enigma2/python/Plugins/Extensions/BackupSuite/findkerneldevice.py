@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+#
+# Finds the eMMC kernel partition (GPT) and links it to /dev/kernel.
+# Modified by Lululla - 2026-11-21: no side effects on import, PARTNAME lookup fixed
+#
 
 import os
 import collections
@@ -82,11 +86,20 @@ def read_partitions(fp, header, lba_size=512):
         yield part
 
 
-def find_kernel_device_udevadm(kernelpartition, name=None):
+def find_kernel_device_udevadm(kernelpartition):
+    """Look the partition up by its PARTNAME in sysfs (no udevadm needed)."""
     try:
-        for partition in os.listdir("/sys/block/mmcblk0"):
-            if partition.startswith("mmcblk0p") and kernelpartition == name:
-                return "/dev/{0}".format(partition)
+        for partition in sorted(os.listdir("/sys/block/mmcblk0")):
+            if not partition.startswith("mmcblk0p"):
+                continue
+            uevent = "/sys/block/mmcblk0/{0}/uevent".format(partition)
+            try:
+                with open(uevent, "r") as f:
+                    for line in f:
+                        if line.strip() == "PARTNAME={0}".format(kernelpartition):
+                            return "/dev/{0}".format(partition)
+            except (IOError, OSError):
+                continue
         return ""
     except Exception:
         return ""
@@ -113,15 +126,31 @@ def find_kernel_device_gpt(kernelpartition):
         return ""
 
 
-try:
-    with open("/sys/firmware/devicetree/base/chosen/kerneldev", "r") as f:
-        kerneldev = f.readline().split(".")
-        if "emmcflash0" in kerneldev[0]:
-            partition_name = kerneldev[1].strip("\0")
-            kerneldevice = find_kernel_device_udevadm(partition_name)
-            if not kerneldevice:
-                kerneldevice = find_kernel_device_gpt(partition_name)
-            if kerneldevice:
-                os.symlink(kerneldevice, "/dev/kernel")
-except Exception:
-    pass
+def main():
+    """Create the /dev/kernel symlink for the running kernel partition."""
+    try:
+        with open("/sys/firmware/devicetree/base/chosen/kerneldev", "r") as f:
+            kerneldev = f.readline().split(".")
+    except (IOError, OSError):
+        return 1
+    if len(kerneldev) < 2 or "emmcflash0" not in kerneldev[0]:
+        return 1
+    partition_name = kerneldev[1].strip("\0").strip()
+    kerneldevice = find_kernel_device_udevadm(partition_name)
+    if not kerneldevice:
+        kerneldevice = find_kernel_device_gpt(partition_name)
+    if not kerneldevice:
+        return 1
+    try:
+        if os.path.islink("/dev/kernel") or os.path.exists("/dev/kernel"):
+            os.remove("/dev/kernel")
+        os.symlink(kerneldevice, "/dev/kernel")
+    except OSError:
+        return 1
+    return 0
+
+
+# Only run when executed by the backup script, never on import
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())

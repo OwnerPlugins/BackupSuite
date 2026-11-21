@@ -1,5 +1,6 @@
 Architecture: all
-Depends: bzip2, enigma2-plugin-extensions-backupsuite, mtd-utils, mtd-utils-ubifs, ofgwrite
+Depends: bzip2, mtd-utils, mtd-utils-ubifs, ofgwrite
+Recommends: zip
 Description: Enigma2 Plugin: extensions-backupsuite
 Homepage: 
 License: GPLv3
@@ -9,4 +10,4 @@ Package: enigma2-plugin-extensions-backupsuite
 Priority: optional
 Section: base
 Source: enigma2-plugin-extensions-backupsuite.bb
-Version: 3.0-r11
+Version: 3.0-r12

@@ -1,17 +1,14 @@
 #!/bin/sh
-
-echo "Removing BackupSuite plugin..."
-
-rm -rf /usr/lib/enigma2/python/Plugins/Extensions/BackupSuite
-
-rm -f /tmp/BackupSuite.log 2>/dev/null || true
-
-echo "Restarting Enigma2..."
-init 4
-sleep 2
-killall enigma2 > /dev/null 2>&1
-sleep 2
-init 3
-
-echo "BackupSuite removed successfully"
+# opkg removes the packaged files itself. On a real removal (not an upgrade)
+# also drop what the plugin created at runtime (compiled files, speed.txt).
+case "$1" in
+    remove|purge)
+        for d in /usr/lib/enigma2/python/Plugins/Extensions/BackupSuite \
+                 /usr/lib64/enigma2/python/Plugins/Extensions/BackupSuite ; do
+            [ -d "$d" ] && rm -rf "$d"
+        done
+        rm -f /tmp/BackupSuite.log /tmp/BackupSuite.ret 2>/dev/null
+        echo "BackupSuite removed. Please restart Enigma2 (GUI)."
+        ;;
+esac
 exit 0

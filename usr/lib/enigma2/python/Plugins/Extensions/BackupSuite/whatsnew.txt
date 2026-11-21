@@ -1,6 +1,49 @@
 Changelog
 =========
 
+3.0-r12 (Lululla, 2026-11-21)
+- CRITICAL: lookuptable.txt restored to tab separated columns. On 39 models
+  the empty FOLDER column made the backup delete the whole destination drive.
+- Backup scripts refuse to delete the medium root, a mount point or any
+  path outside a backup folder.
+- message.py restored: without it no backup could run.
+- The device chosen in the plugin is now really used by the scripts.
+- Errors are reported as errors (exit codes propagated to the plugin).
+- MMC backups now create a real flashable backup like USB.
+- Dreambox launchers use backupdmm.sh.
+- Restore screen: Flash, About and Delete keys work again, screens have a skin.
+- No more unmounting of devices when the plugin starts.
+- Shell commands are quoted safely (zip names, paths, translations).
+- Package scripts no longer restart Enigma2 on install/remove.
+- Multiboot: the backup takes the kernel of the RUNNING slot (kernel= on
+  the command line, Vu+ kexec /zImage, devicetree kerneldev) instead of
+  always the slot 1 partition. Slot written into imageversion.
+- NeoBoot, OpenMultiboot, Barry Allen / image on USB: detected and shown
+  before backup and before flashing (flashing writes the internal flash).
+- Samba sockets are excluded from the backup instead of being deleted from
+  the running system.
+- 15 languages kept.
+- Safety: the bind mount of / used to read the system is READ-ONLY, stale
+  mounts of aborted runs are removed, nothing is ever deleted through a
+  mount point, the work folder has its own name (.backupsuite_work).
+- RED key stops a running backup; the scripts clean up after themselves.
+- Delete refuses folders that contain a mounted filesystem.
+- NEW settings screen (MENU key or "Settings and automatic backup"):
+  * automatic backup at a chosen time and days, in the background
+  * postponed while a recording runs (up to 3 hours)
+  * optional wake up from deep standby and back to deep standby after
+  * automatic cleanup: keep the newest N backups or delete older than X;
+    only BackupSuite dated folders and zips, never the newest one
+  * a *.fbackup file on a USB stick can start a backup to that stick
+  * message at the end of the automatic backup
+- Only one backup at a time (lock).
+- Progress during the backup: percent, MB, elapsed and remaining time.
+- Realistic time estimate (size of the running image, measured speed).
+- Clean zip name (e.g. backup-openATV_7.6-<model>-<date>.zip) and image
+  name in imageversion (the last /etc/issue line is only a login hint).
+- Fewer separator lines; no more "socket ignored" messages from tar.
+- Read-only bind mount also on busybox builds whose mount cannot remount.
+
 Git 555
 - python 3 compatibility (extensions changed from pyo to pyc)
 

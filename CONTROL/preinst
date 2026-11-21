@@ -1,0 +1,20 @@
+#!/bin/sh
+# BackupSuite preinst
+#
+# opkg runs the postrm of the OLD version during an upgrade, after this
+# preinst and before the new files are installed. The postrm of 3.0-r11
+# and older restarted Enigma2 (init 4 / killall enigma2 / init 3) while
+# opkg was still working, which can interrupt the upgrade when it was
+# started from the Enigma2 menus. Replace that old postrm with a harmless
+# one before opkg runs it.
+OLD_POSTRM=/var/lib/opkg/info/enigma2-plugin-extensions-backupsuite.postrm
+
+case "$1" in
+    upgrade)
+        if [ -f "$OLD_POSTRM" ] && grep -q -e "killall enigma2" -e "init 4" -e "rm -rf" "$OLD_POSTRM" ; then
+            printf '#!/bin/sh\nexit 0\n' > "$OLD_POSTRM"
+            chmod 755 "$OLD_POSTRM"
+        fi
+        ;;
+esac
+exit 0

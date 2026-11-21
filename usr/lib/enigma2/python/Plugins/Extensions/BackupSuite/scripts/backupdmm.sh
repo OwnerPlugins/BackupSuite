@@ -1,7 +1,7 @@
 #!/bin/sh
 
 ###############################################################################
-#          BACKUP SUITE LAUNCHER - DETECTS MEDIA AND STARTS BACKUP            #
+#          BACKUP SUITE - FULL BACKUP ENGINE FOR DREAMBOX RECEIVERS           #
 #                https://github.com/persianpros/BackupSuite-PLi               #
 #                                                                             #
 #     FULL BACKUP UTILITY FOR ENIGMA2/OPENVISION, SUPPORTS VARIOUS MODELS     #
@@ -9,6 +9,7 @@
 #               SUPPORT FORUM: https://forums.openpli.org/                    #
 #                                                                             #
 #                       UPDATE 20250615 BY LULULLA                            #
+#                 MODIFIED 2026-11-21 BY LULULLA (3.0-r12)                    #
 ###############################################################################
 
 ### NOTES FOR BACKUP SUITE (LULULLA)
@@ -111,35 +112,43 @@ get_file_size() {
     fi
 }
 
-if [ -d "/usr/lib64" ]; then
-    echo "multilib situation!"
+if [ -d "/usr/lib64/enigma2/python/Plugins/Extensions/BackupSuite" ]; then
     LIBDIR="/usr/lib64"
 else
     LIBDIR="/usr/lib"
 fi
 
-export LANG="$1"
-export SHOW="$PYTHON $LIBDIR/enigma2/python/Plugins/Extensions/BackupSuite/message.$PYEXT $LANG"
+# Usage: backupdmm.sh <media_path> [device_type] [lang]
+MEDIA="${1%/}"
+DEVICE_TYPE="$2"
+LANG_CODE="${3:-${LANG:-en}}"
+if [ -z "$SHOW" ] ; then
+    if [ -f "$LIBDIR/enigma2/python/Plugins/Extensions/BackupSuite/message.py" ] ; then
+        SHOW="$PYTHON $LIBDIR/enigma2/python/Plugins/Extensions/BackupSuite/message.py $LANG_CODE"
+    else
+        SHOW="echo"
+    fi
+fi
+export SHOW
+# multiboot helpers: kernel of the running slot, folder multiboots
+. "$LIBDIR/enigma2/python/Plugins/Extensions/BackupSuite/scripts/multiboot.sh"
 
-# Dynamic device type setting
-case "$2" in
-    "HDD") export HARDDISK=1 ;;
-    "USB") export HARDDISK=0 ;;
-    "MMC") export HARDDISK=0 ;;
-    *)     export HARDDISK=0 ;;
+case "$DEVICE_TYPE" in
+    HDD|NET) HARDDISK=1 ;;
+    USB|MMC) HARDDISK=0 ;;
+    *)       HARDDISK="${HARDDISK:-0}" ;;
 esac
+export HARDDISK
+
+case "$MEDIA" in
+    ""|/|/media|/tmp|/tmp/*)
+        echo "Invalid backup destination: $MEDIA" >&2
+        exit 1 ;;
+esac
+[ -d "$MEDIA" ] || { echo "Directory does not exist: $MEDIA" >&2 ; exit 1 ; }
 
 echo -n $YELLOW
 
-## ADD A POSTRM ROUTINE TO ENSURE A CLEAN UNINSTALL
-POSTRM="/var/lib/opkg/info/enigma2-plugin-extensions-backupsuite.postrm"
-if [ ! -f $POSTRM ] ; then
-    echo "#!/bin/sh" > "$POSTRM"
-    echo "rm -rf $LIBDIR/enigma2/python/Plugins/Extensions/BackupSuite" >> "$POSTRM"
-    echo 'echo "Plugin removed!"' >> "$POSTRM"
-    echo "exit 0" >> "$POSTRM"
-    chmod 755 "$POSTRM"
-fi
 
 
 ###################### FIRST DEFINE SOME PROGRAM BLOCKS #######################
@@ -152,11 +161,12 @@ echo "$*" >> $LOGFILE
 ########################## DEFINE CLEAN-UP ROUTINE ############################
 clean_up()
 {
-umount /tmp/bi/root > /dev/null 2>&1
+mb_unmount_all /tmp/bi/root
 rmdir /tmp/bi/root > /dev/null 2>&1
 rmdir /tmp/bi > /dev/null 2>&1
-rm -rf "$WORKDIR" > /dev/null 2>&1
+mb_safe_rmtree "$WORKDIR" > /dev/null 2>&1
 }
+trap 'mb_stop_bg; clean_up; exit 1' INT TERM HUP
 
 ###################### BIG OOPS!, HOLY SH... (SHELL SCRIPT :-))################
 big_fail()
@@ -170,7 +180,27 @@ clean_up
 echo $RED
 $SHOW "message15" 2>&1 | tee -a $LOGFILE # Image creation FAILED!
 echo $WHITE
-exit 0
+exit 1
+}
+
+######################## SAFE REMOVAL OF A BACKUP FOLDER #######################
+safe_rm()
+{
+p="${1%/}"
+unsafe=0
+case "$p" in
+    ""|/|*/..|*/../*|/media) unsafe=1 ;;
+esac
+[ "$(echo "$p" | tr -cd '/' | wc -c)" -lt 2 ] && unsafe=1
+[ "$p" = "$MEDIA" ] && unsafe=1
+[ -n "$TARGET" ] && [ "$p" = "${TARGET%/}" ] && unsafe=1
+awk -v p="$p" '$2 == p { f = 1 } END { exit !f }' /proc/mounts && unsafe=1
+mb_has_mounts_below "$p" && unsafe=1
+if [ "$unsafe" = 1 ] ; then
+    { $SHOW "message58" ; echo " $1" ; } 2>&1 | tee -a $LOGFILE
+    big_fail
+fi
+rm -rf "$p"
 }
 
 ############################ DEFINE IMAGE_VERSION #############################
@@ -183,6 +213,7 @@ echo "Updated = $LASTUPDATE"
 echo -n "Drivers = "
 opkg list-installed | grep dvb-modules
 echo "Enigma2 = $ENIGMA2DATE"
+mb_describe
 echo
 echo $LINE
 }
@@ -190,7 +221,7 @@ echo $LINE
 #################### CLEAN UP AND MAKE DESTINATION FOLDERS ####################
 make_folders()
 {
-rm -rf "$MAINDEST"
+safe_rm "$MAINDEST"
 log "Removed directory  = $MAINDEST"
 mkdir -p "$MAINDEST"
 log "Created directory  = $MAINDEST"
@@ -220,7 +251,7 @@ $SHOW "message10" ; echo "$MAINDEST"     # USB Image created in:
 $SHOW "message23"        # "The content of the folder is:"
 LS_PORTABLE "$MAINDEST"
 echo $LINE
-if  [ $HARDDISK != 1 ]; then
+if  [ "$HARDDISK" != 1 ]; then
     $SHOW "message11" ; echo "$EXTRA"        # and there is made an extra copy in:
     echo $LINE
 fi
@@ -236,7 +267,7 @@ $SHOW "message42" ; echo "$MAINDEST"     # NFI Image created in:
 $SHOW "message23"        # "The content of the folder is:"
 LS_PORTABLE "$MAINDEST"
 echo $LINE
-if  [ $HARDDISK != 1 ]; then
+if  [ "$HARDDISK" != 1 ]; then
     $SHOW "message11" ; echo "$EXTRA"        # and there is made an extra copy in:
     echo $LINE
 fi
@@ -256,17 +287,15 @@ else
     ESTSPEED="250"
 fi
 FLASHED=$(date -r /etc/version +%Y.%m.%d_%H:%M)
-ISSUE=$(cat /etc/issue | grep . | tail -n 1)
-IMVER=${ISSUE%?????}
+IMVER="$(mb_image_label)"
 LASTUPDATE=$(date -r /var/lib/opkg/status +%Y.%m.%d_%H:%M)
 ENIGMA2DATE=$(cat /tmp/enigma2version)
 LOGFILE=/tmp/BackupSuite.log
-MEDIA="$1"
-MKFS=/usr/sbin/mkfs.ubifs
-MKFSJFFS2=/usr/sbin/mkfs.jffs2
-BUILDIMAGE=/usr/bin/buildimage
+MKFS="$(mb_tool mkfs.ubifs)"
+MKFSJFFS2="$(mb_tool mkfs.jffs2)"
+BUILDIMAGE="$(mb_tool buildimage)"
 MTDPLACE=$(cat /proc/mtd | grep -w "kernel" | cut -d ":" -f 1)
-NANDDUMP=/usr/sbin/nanddump
+NANDDUMP="$(mb_tool nanddump)"
 START=$(date +%s)
 if [ -f "/etc/lookuptable.txt" ] ; then
     LOOKUP="/etc/lookuptable.txt"
@@ -275,7 +304,7 @@ else
     LOOKUP="$LIBDIR/enigma2/python/Plugins/Extensions/BackupSuite/lookuptable.txt"
 fi
 TARGET="XX"
-UBINIZE=/usr/sbin/ubinize
+UBINIZE="$(mb_tool ubinize)"
 USEDsizebytes=$(df -B 1 /usr/ | grep [0-9]% | tr -s " " | cut -d " " -f 3)
 USEDsizekb=$(df -k /usr/ | grep [0-9]% | tr -s " " | cut -d " " -f 3)
 if [ -f "/var/lib/opkg/info/enigma2-plugin-extensions-backupsuite.control" ] ; then
@@ -283,7 +312,7 @@ if [ -f "/var/lib/opkg/info/enigma2-plugin-extensions-backupsuite.control" ] ; t
 else
     VERSION=$($SHOW "message37")
 fi
-WORKDIR="$MEDIA/bi"
+WORKDIR="$MEDIA/.backupsuite_work"   # own name: never a folder of the user
 
 ######################### START THE LOGFILE $LOGFILE ##########################
 echo -n "" > $LOGFILE
@@ -306,7 +335,11 @@ echo -n $WHITE
 
 #############################################################################
 # TEST IF RECEIVER IS SUPPORTED AND READ THE VARIABLES FROM THE LOOKUPTABLE #
-if [ -f /etc/modules-load.d/dreambox-dvb-modules-dm*.conf ] || [ -f /etc/modules-load.d/10-dreambox-dvb-modules-dm*.conf ] ; then
+IS_DREAMBOX=0
+for f in /etc/modules-load.d/*dreambox-dvb-modules-dm*.conf ; do
+    [ -e "$f" ] && IS_DREAMBOX=1
+done
+if [ "$IS_DREAMBOX" = 1 ] ; then
     if [ -f /etc/openvision/model ] ; then
         log "Open Vision detected"
         SEARCH=$(cat /etc/openvision/model | tr "A-Z" "a-z" | tr -d '[:space:]')
@@ -319,35 +352,46 @@ else
     exit 1
 fi
 
+if [ -z "$SEARCH" ] ; then
+    $SHOW "message01" 2>&1 | tee -a $LOGFILE   # No supported receiver found!
+    exit 1
+fi
+
 ############################## DM9X0 Situation ##############################
 dm9x0_situation()
 {
 log "Found dm9x0, bz2 mode"
-MODEL=$(cat $LOOKUP | grep -w -m1 "$SEARCH" | cut -f 2)
-SHOWNAME=$(cat $LOOKUP | grep -w -m1 "$SEARCH" | cut -f 3)
-FOLDER="$(cat $LOOKUP | grep -w -m1 "$SEARCH" | cut -f 4)"
-EXTR1="$(cat $LOOKUP | grep -w -m1 "$SEARCH" | cut -f 5)/$DATE"
-EXTR2="$(cat $LOOKUP | grep -w -m1 "$SEARCH" | cut -f 6)"
+ROW="$(awk -F'\t' -v m="$SEARCH" 'NR > 1 && $2 == m { print; exit }' "$LOOKUP")"
+col() { printf '%s\n' "$ROW" | cut -f "$1" ; }
+MODEL="$(col 2)"
+SHOWNAME="$(col 3)"
+FOLDER="$(col 4)"
+EXTR1="$(col 5)/$DATE"
+EXTR2="$(col 6)"
+case "$FOLDER" in
+    /?*) ;;
+    *) log "No valid lookuptable entry for $SEARCH"
+       $SHOW "message01" 2>&1 | tee -a $LOGFILE
+       big_fail ;;
+esac
 EXTRA="$MEDIA$EXTR1$EXTR2"
-if  [ $HARDDISK = 1 ]; then
+if  [ "$HARDDISK" = 1 ]; then
     MAINDEST="$MEDIA$EXTR1$FOLDER"
 else
     MAINDEST="$MEDIA$FOLDER"
 fi
-MKUBIFS_ARGS=$(cat $LOOKUP | grep -w -m1 "$SEARCH" | cut -f 7)
-UBINIZE_ARGS=$(cat $LOOKUP | grep -w -m1 "$SEARCH" | cut -f 8)
-ROOTNAME=$(cat $LOOKUP | grep -w -m1 "$SEARCH" | cut -f 9)
-KERNELNAME=$(cat $LOOKUP | grep -w -m1 "$SEARCH" | cut -f 10)
-ACTION=$(cat $LOOKUP | grep -w -m1 "$SEARCH" | cut -f 11)
-MKFS=/bin/tar
+MKUBIFS_ARGS="$(col 7)"
+UBINIZE_ARGS="$(col 8)"
+ROOTNAME="$(col 9)"
+KERNELNAME="$(col 10)"
+ACTION="$(col 11)"
+MKFS="$(mb_tool tar)"
 checkbinary $MKFS
-BZIP2=/usr/bin/bzip2
-if [ ! -f "$BZIP2" ] ; then
-    echo "$BZIP2 " ; $SHOW "message38"
-    opkg update > /dev/null 2>&1
-    opkg install bzip2 > /dev/null 2>&1
-    checkbinary $MKFS
+if ! mb_tool bzip2 > /dev/null ; then
+    echo -n "bzip2 " ; $SHOW "message38"
 fi
+BZIP2="$(mb_need_tool bzip2 bzip2)"
+checkbinary $BZIP2
 log "Destination        = $MAINDEST"
 log $LINE
 
@@ -385,33 +429,32 @@ echo $LINE
 
 ##################### PREPARING THE BUILDING ENVIRONMENT ######################
 log "*** FIRST SOME HOUSEKEEPING ***"
-rm -rf "$WORKDIR"       # GETTING RID OF THE OLD REMAINS IF ANY
+mb_safe_rmtree "$WORKDIR" || big_fail       # GETTING RID OF THE OLD REMAINS IF ANY
 log "Remove directory   = $WORKDIR"
 mkdir -p "$WORKDIR"     # MAKING THE WORKING FOLDER WHERE EVERYTHING HAPPENS
 log "Recreate directory = $WORKDIR"
 mkdir -p /tmp/bi/root # this is where the complete content will be available
 log "Create directory   = /tmp/bi/root"
 sync
-mount --bind / /tmp/bi/root # the complete root at /tmp/bi/root
-## TEMPORARY WORKAROUND TO REMOVE
-##      /var/lib/samba/private/msg.sock
-## WHICH GIVES AN ERRORMESSAGE WHEN NOT REMOVED
-if [ -d /tmp/bi/root/var/lib/samba/private/msg.sock ] ; then
-    rm -rf /tmp/bi/root/var/lib/samba/private/msg.sock
-fi
+mb_bind_root /tmp/bi/root || big_fail   # read-only bind of the complete root
+# Samba runtime sockets are not files: never back them up and never touch
+# them on the live system (/tmp/bi/root is a bind mount of /)
+TAR_EXCLUDES="--exclude=./var/lib/samba/msg.sock --exclude=./var/lib/samba/private/msg.sock --exclude=./var/nmbd"
+# busybox tar may be built without --exclude: then just skip the excludes
+"$(mb_tool tar)" --help 2>&1 | grep -q -- "--exclude" || TAR_EXCLUDES=""
 
 ############################## MAKING KERNELDUMP ##############################
 log $LINE
 $SHOW "message07" 2>&1 | tee -a $LOGFILE            # Create: kerneldump
-if [ $SEARCH = "dm900" -o $SEARCH = "dm920" ] ; then
+if mb_dump_running_kernel "$WORKDIR/$KERNELNAME" "$PYTHON $LIBDIR/enigma2/python/Plugins/Extensions/BackupSuite/findkerneldevice.py" ; then
+    log "Kernel of the running image taken from $MB_KERNEL_SOURCE"
+elif [ "$SEARCH" = "dm900" -o "$SEARCH" = "dm920" ] ; then
     dd if=/dev/mmcblk0p1 of=$WORKDIR/$KERNELNAME
     log "Kernel resides on /dev/mmcblk0p1"
 else
-    $PYTHON $LIBDIR/enigma2/python/Plugins/Extensions/BackupSuite/findkerneldevice.$PYEXT
+    $PYTHON $LIBDIR/enigma2/python/Plugins/Extensions/BackupSuite/findkerneldevice.py
     KERNEL=$(cat /sys/firmware/devicetree/base/chosen/kerneldev)
-    KERNELNAME=${KERNEL:11:7}.bin
-    echo "$KERNELNAME = STARTUP_${KERNEL:17:1}"
-    log "$KERNELNAME = STARTUP_${KERNEL:17:1}"
+    log "Kernel device from devicetree: $(printf '%s' "$KERNEL" | tr -d '\000')"
     dd if=/dev/kernel of=$WORKDIR/$KERNELNAME > /dev/null 2>&1
 fi
 
@@ -426,20 +469,18 @@ if [ -b "/dev/mmcblk0p16" ] && [ -b "/dev/mmcblk0p12" ]; then
     
     # Mount rootfs partition and create tar directly
     mkdir -p /tmp/rootfs_mount
-    if mount /dev/mmcblk0p16 /tmp/rootfs_mount; then
-        cd /tmp/rootfs_mount
-        $MKFS -cf $WORKDIR/rootfs.tar .
-        cd /
-        umount /tmp/rootfs_mount
-        rm -rf /tmp/rootfs_mount
+    if mount -o ro /dev/mmcblk0p16 /tmp/rootfs_mount; then
+        $MKFS -cf "$WORKDIR/rootfs.tar" -C /tmp/rootfs_mount $TAR_EXCLUDES .
+        # rmdir only: if umount failed, rm -rf would wipe the mounted rootfs
+        umount /tmp/rootfs_mount && rmdir /tmp/rootfs_mount
         echo "RootFS tar created directly from eMMC partition"
     else
         echo "ERROR: Cannot mount rootfs partition, using standard method"
-        $MKFS -cf $WORKDIR/rootfs.tar -C /tmp/bi/root .
+        $MKFS -cf "$WORKDIR/rootfs.tar" -C /tmp/bi/root $TAR_EXCLUDES .
     fi
 else
     # Standard method for other devices
-    $MKFS -cf $WORKDIR/rootfs.tar -C /tmp/bi/root .
+    $MKFS -cf "$WORKDIR/rootfs.tar" -C /tmp/bi/root $TAR_EXCLUDES .
 fi
 
 $BZIP2 $WORKDIR/rootfs.tar
@@ -449,7 +490,7 @@ make_folders
 mv "$WORKDIR/$ROOTNAME" "$MAINDEST/$ROOTNAME"
 mv "$WORKDIR/$KERNELNAME" "$MAINDEST/$KERNELNAME"
 image_version > "$MAINDEST/imageversion"
-if  [ $HARDDISK != 1 ]; then
+if  [ "$HARDDISK" != 1 ]; then
     mkdir -p "$EXTRA"
     log "Created directory  = $EXTRA"
     cp -r "$MAINDEST" "$EXTRA"   #copy the made back-up to images
@@ -463,12 +504,13 @@ else
 fi
 
 #################### CHECKING FOR AN EXTRA BACKUP STORAGE #####################
-if  [ $HARDDISK = 1 ]; then                     # looking for a valid usb-stick
+if  [ "$HARDDISK" = 1 ]; then                     # looking for a valid usb-stick
     for candidate in $(cut -d ' ' -f 2 /proc/mounts | grep '^/media/')
     do
-        if [ -f "${candidate}/"*[Bb][Aa][Cc][Kk][Uu][Pp][Ss][Tt][Ii][Cc][Kk]* ] ; then
-            TARGET="${candidate}"
-        fi
+        [ "$candidate" = "$MEDIA" ] && continue
+        for marker in "${candidate}/"*[Bb][Aa][Cc][Kk][Uu][Pp][Ss][Tt][Ii][Cc][Kk]* ; do
+            [ -e "$marker" ] && TARGET="${candidate}"
+        done
     done
     if [ "$TARGET" != "XX" ] ; then
         echo -n $GREEN
@@ -479,7 +521,7 @@ if  [ $HARDDISK = 1 ]; then                     # looking for a valid usb-stick
         {
         $SHOW "message09" ; echo -n "$TARGET ($TOTALSIZE, " ; $SHOW "message16" ; echo "$FREESIZE)"
         } 2>&1 | tee -a $LOGFILE
-        rm -rf "$TARGET$FOLDER"
+        safe_rm "$TARGET$FOLDER"
         mkdir -p "$TARGET$FOLDER"
         cp -r "$MAINDEST/." "$TARGET$FOLDER"
         echo $LINE >> $LOGFILE
@@ -523,7 +565,7 @@ opkg list-installed >> $LOGFILE
 ######################## COPY LOGFILE TO MAINDESTINATION ######################
 echo -n $WHITE
 cp $LOGFILE "$MAINDEST"
-if  [ $HARDDISK != 1 ]; then
+if  [ "$HARDDISK" != 1 ]; then
     cp $LOGFILE "$MEDIA$EXTR1"
     mv "$MEDIA$EXTR1$FOLDER"/imageversion "$MEDIA$EXTR1"
 else
@@ -536,7 +578,7 @@ fi
 }
 
 ############################## DM9X0 Situation ##############################
-if [ $SEARCH = "dm900" ] || [ $SEARCH = "dm920" ] ; then
+if [ "$SEARCH" = "dm900" ] || [ "$SEARCH" = "dm920" ] ; then
     dm9x0_situation
 fi
 
@@ -581,30 +623,29 @@ echo $LINE
 
 ##################### PREPARING THE BUILDING ENVIRONMENT ######################
 log "*** FIRST SOME HOUSEKEEPING ***"
-rm -rf "$WORKDIR"       # GETTING RID OF THE OLD REMAINS IF ANY
+mb_safe_rmtree "$WORKDIR" || big_fail       # GETTING RID OF THE OLD REMAINS IF ANY
 log "Remove directory   = $WORKDIR"
 mkdir -p "$WORKDIR"     # MAKING THE WORKING FOLDER WHERE EVERYTHING HAPPENS
 log "Recreate directory = $WORKDIR"
 mkdir -p /tmp/bi/root # this is where the complete content will be available
 log "Create directory   = /tmp/bi/root"
 sync
-mount --bind / /tmp/bi/root # the complete root at /tmp/bi/root
-## TEMPORARY WORKAROUND TO REMOVE
-##      /var/lib/samba/private/msg.sock
-## WHICH GIVES AN ERRORMESSAGE WHEN NOT REMOVED
-if [ -d /tmp/bi/root/var/lib/samba/private/msg.sock ] ; then
-    rm -rf /tmp/bi/root/var/lib/samba/private/msg.sock
-fi
+mb_bind_root /tmp/bi/root || big_fail   # read-only bind of the complete root
+# Samba runtime sockets are not files: never back them up and never touch
+# them on the live system (/tmp/bi/root is a bind mount of /)
+TAR_EXCLUDES="--exclude=./var/lib/samba/msg.sock --exclude=./var/lib/samba/private/msg.sock --exclude=./var/nmbd"
+# busybox tar may be built without --exclude: then just skip the excludes
+"$(mb_tool tar)" --help 2>&1 | grep -q -- "--exclude" || TAR_EXCLUDES=""
 
 #############################  MAKING ROOT.UBI(FS) ############################
 $SHOW "message06a" 2>&1 | tee -a $LOGFILE       #Create: root.ubifs
 log $LINE
-$MKFS -cf $WORKDIR/rootfs.tar -C /tmp/bi/root .
+$MKFS -cf "$WORKDIR/rootfs.tar" -C /tmp/bi/root $TAR_EXCLUDES .
 
 ############################ ASSEMBLING THE IMAGE #############################
 make_folders
 image_version > "$MAINDEST/imageversion"
-if  [ $HARDDISK != 1 ]; then
+if  [ "$HARDDISK" != 1 ]; then
     mkdir -p "$EXTRA"
     log "Created directory  = $EXTRA"
     cp -r "$MAINDEST" "$EXTRA"   #copy the made back-up to images
@@ -614,12 +655,13 @@ $SHOW "message14"            # Instructions on how to restore the image.
 echo $LINE
 
 #################### CHECKING FOR AN EXTRA BACKUP STORAGE #####################
-if  [ $HARDDISK = 1 ]; then                     # looking for a valid usb-stick
+if  [ "$HARDDISK" = 1 ]; then                     # looking for a valid usb-stick
     for candidate in $(cut -d ' ' -f 2 /proc/mounts | grep '^/media/')
     do
-        if [ -f "${candidate}/"*[Bb][Aa][Cc][Kk][Uu][Pp][Ss][Tt][Ii][Cc][Kk]* ] ; then
-            TARGET="${candidate}"
-        fi
+        [ "$candidate" = "$MEDIA" ] && continue
+        for marker in "${candidate}/"*[Bb][Aa][Cc][Kk][Uu][Pp][Ss][Tt][Ii][Cc][Kk]* ; do
+            [ -e "$marker" ] && TARGET="${candidate}"
+        done
     done
     if [ "$TARGET" != "XX" ] ; then
         echo -n $GREEN
@@ -630,7 +672,7 @@ if  [ $HARDDISK = 1 ]; then                     # looking for a valid usb-stick
         {
         $SHOW "message09" ; echo -n "$TARGET ($TOTALSIZE, " ; $SHOW "message16" ; echo "$FREESIZE)"
         } 2>&1 | tee -a $LOGFILE
-        rm -rf "$TARGET$FOLDER"
+        safe_rm "$TARGET$FOLDER"
         mkdir -p "$TARGET$FOLDER"
         cp -r "$MAINDEST/." "$TARGET$FOLDER"
         echo $LINE >> $LOGFILE
@@ -674,7 +716,7 @@ opkg list-installed >> $LOGFILE
 ######################## COPY LOGFILE TO MAINDESTINATION ######################
 echo -n $WHITE
 cp $LOGFILE "$MAINDEST"
-if  [ $HARDDISK != 1 ]; then
+if  [ "$HARDDISK" != 1 ]; then
     cp $LOGFILE "$MEDIA"
     mv "$MEDIA$FOLDER"/imageversion "$MEDIA"
 else
@@ -687,7 +729,7 @@ fi
 }
 
 ######################## DM52X,DM7080,DM820 Situation ########################
-if [ $SEARCH = "dm520" ] || [ $SEARCH = "dm525" ] || [ $SEARCH = "dm7080" ] || [ $SEARCH = "dm820" ] ; then
+if [ "$SEARCH" = "dm520" ] || [ "$SEARCH" = "dm525" ] || [ "$SEARCH" = "dm7080" ] || [ "$SEARCH" = "dm820" ] ; then
     dm52x_dm7080_dm820_situation
 fi
 
@@ -712,19 +754,20 @@ echo $WHITE
 
 ############ CALCULATE SIZE, ESTIMATED SPEED AND SHOW IT ON SCREEN ############
 # athoik's code, Modified by Persian Prince #
-CREATE_ZIP="$2"
-IMAGENAME="$3"
+# Optional, from the environment only (the positional args are media/type/lang)
+CREATE_ZIP="${CREATE_ZIP:-}"
+IMAGENAME="${IMAGENAME:-backup}"
 cleanup_mounts(){
    if [ ! -z "$TBI" ] ; then
       if [ -d "$TBI/boot" ] ; then
-     if grep -q "$TBI/boot" /proc/mounts ; then
-        umount "$TBI/boot" 2>/dev/null || log "Cannot umount boot" && exit 6
+     if mb_is_mounted "$TBI/boot" ; then
+        mb_unmount_all "$TBI/boot" || { log "Cannot umount boot" ; exit 6 ; }
      fi
      rmdir "$TBI/boot" 2>/dev/null
       fi
       if [ -d "$TBI/root" ] ; then
-     if grep -q "$TBI/root" /proc/mounts ; then
-        umount "$TBI/root" 2>/dev/null || log "Cannot umount root" && exit 7
+     if mb_is_mounted "$TBI/root" ; then
+        mb_unmount_all "$TBI/root" || { log "Cannot umount root" ; exit 7 ; }
      fi
      rmdir "$TBI/root" 2>/dev/null
       fi
@@ -735,7 +778,7 @@ cleanup_mounts(){
 #
 EXTRA="$MEDIA/fullbackup_dreambox/$DATE"
 MAINDEST="$MEDIA/$SEARCH"
-SBI="$MEDIA/bi"
+SBI="$MEDIA/.backupsuite_work"
 TBI="/tmp/bi"
 #
 # Initialize Parameters
@@ -802,7 +845,7 @@ case $SEARCH in
       if [ -f /sys/devices/virtual/mtd/mtd0/writesize ] ; then
      WRITESIZE=$(cat /sys/devices/virtual/mtd/mtd0/writesize)
       fi
-      if [ $WRITESIZE = "2048" ] ; then
+      if [ "$WRITESIZE" = "2048" ] ; then
      log "Found dm7020hdv2"
      DREAMBOX_ERASE_BLOCK_SIZE="0x20000"
      DREAMBOX_SECTOR_SIZE="2048"
@@ -841,18 +884,18 @@ cleanup_mounts
 echo $LINE
 echo "Starting Full Backup, Please wait ..."
 echo $LINE
-rm -rf "$SBI" 2>/dev/null
-rm -rf "$TBI" 2>/dev/null
+mb_safe_rmtree "$SBI" 2>/dev/null
+mb_safe_rmtree "$TBI" 2>/dev/null
 mkdir -p "$SBI"
 mkdir -p "$TBI"
 #
 # Export secondstage
 #
 log "Exporting secondstage"
-/usr/sbin/nanddump --noecc --omitoob --bb=skipbad --file="$SECSTAGE" /dev/mtd1
+$NANDDUMP --noecc --omitoob --bb=skipbad --file="$SECSTAGE" /dev/mtd1
 if [ $? -ne 0 ] && [ ! -f "$SECSTAGE" ] ; then
-   rm -rf "$SBI" 2>/dev/null
-   rm -rf "$TBI" 2>/dev/null
+   mb_safe_rmtree "$SBI" 2>/dev/null
+   mb_safe_rmtree "$TBI" 2>/dev/null
    log "Error: nanddump failed to dump secondstage!"
    exit 8
 fi
@@ -861,17 +904,17 @@ fi
 #
 $PYTHON -c "
 data=open('$SECSTAGE', 'rb').read()
-cutoff=data.find('\xff\xff\xff\xff')
-if cutoff:
+cutoff=data.find(b'\xff\xff\xff\xff')
+if cutoff > 0:
     open('$SECSTAGE', 'wb').write(data[0:cutoff])
 "
 SIZE="$(du -k "$SECSTAGE" | awk '{ print $1 }')"
-if [ $SIZE -gt 200 ] ; then
+if [ "$SIZE" -gt 200 ] ; then
    log "Error: Size of secondstage must be less than 200k"
    log "Reinstall secondstage before creating backup"
    log "opkg install --force-reinstall dreambox-secondstage-$SEARCH"
-   rm -rf "$SBI" 2>/dev/null
-   rm -rf "$TBI" 2>/dev/null
+   mb_safe_rmtree "$SBI" 2>/dev/null
+   mb_safe_rmtree "$TBI" 2>/dev/null
    exit 9
 fi
 #
@@ -879,13 +922,13 @@ fi
 #
 log "Exporting boot partition"
 mkdir -p "$TBI/boot"
-mount -t jffs2 /dev/mtdblock/2 "$TBI/boot"
-/usr/sbin/mkfs.jffs2 \
+mount -t jffs2 -o ro /dev/mtdblock/2 "$TBI/boot"
+$MKFSJFFS2 \
    --root="$TBI/boot" \
    --compression-mode=none \
    --output="$BOOT" \
    $EXTRA_IMAGECMD
-umount "$TBI/boot" 2>/dev/null
+mb_unmount_all "$TBI/boot"
 #
 # Export root partition
 #
@@ -894,7 +937,7 @@ if grep -q ubi0:rootfs /proc/mounts ; then
    ROOTFS="$SBI/rootfs.ubi"
    ROOTUBIFS="$SBI/rootfs.ubifs"
    mkdir -p "$TBI/root"
-   mount --bind / "$TBI/root"
+   mb_bind_root "$TBI/root" || exit 7
    echo [root] > $UBINIZE_CFG
    echo mode=ubi >> $UBINIZE_CFG
    echo image=$ROOTUBIFS >> $UBINIZE_CFG
@@ -915,29 +958,29 @@ if grep -q ubi0:rootfs /proc/mounts ; then
      echo vol_flags=autoresize >> $UBINIZE_CFG
       fi
    fi
-   /usr/sbin/mkfs.ubifs -r "$TBI/root" -o $ROOTUBIFS $MKUBIFS_ARGS
+   "$(mb_tool mkfs.ubifs)" -r "$TBI/root" -o $ROOTUBIFS $MKUBIFS_ARGS
    log "mkfs.ubifs return value: $?"
-   /usr/sbin/ubinize -o $ROOTFS $UBINIZE_ARGS $UBINIZE_CFG
+   "$UBINIZE" -o $ROOTFS $UBINIZE_ARGS $UBINIZE_CFG
    log "ubinize return value: $?"
-   umount "$TBI/root" 2>/dev/null
+   mb_unmount_all "$TBI/root"
 else
    log "Export rootfs (JFFS2)"
    mkdir -p "$TBI/root"
-   mount -t jffs2 /dev/mtdblock/3 "$TBI/root"
-   /usr/sbin/mkfs.jffs2 \
+   mount -t jffs2 -o ro /dev/mtdblock/3 "$TBI/root"
+   $MKFSJFFS2 \
       --root="$TBI/root" \
       --disable-compressor=lzo \
       --compression-mode=size \
       --output=$ROOTFS \
       $EXTRA_IMAGECMD
    log "mkfs.jffs2 return value: $?"
-   umount "$TBI/root" 2>/dev/null
+   mb_unmount_all "$TBI/root"
 fi
 #
 # Build NFI image
 #
 log "Building NFI image"
-/usr/bin/buildimage --arch $SEARCH $EXTRA_BUILDCMD \
+$BUILDIMAGE --arch $SEARCH $EXTRA_BUILDCMD \
    --erase-block-size $DREAMBOX_ERASE_BLOCK_SIZE \
    --flash-size $DREAMBOX_FLASH_SIZE \
    --sector-size $DREAMBOX_SECTOR_SIZE \
@@ -950,7 +993,7 @@ log "Building NFI image"
 #
 log "Transfering image to backup folder"
 TSTAMP="$(date "+%Y-%m-%d-%Hh%Mm")"
-rm -rf "$MAINDEST" 2>/dev/null
+safe_rm "$MAINDEST"
 mkdir -p "$MAINDEST"
 NFI="$MAINDEST/$TSTAMP-$SEARCH.nfi"
 mv "$SBI/backup.nfi" "$NFI"
@@ -958,14 +1001,12 @@ log "Backup image created $NFI"
 log "$(du -h $NFI)"
 if [ -z "$CREATE_ZIP" ] ; then
    mkdir -p "$EXTRA"
-   touch "$NFI/$IMVER"
    cp -r "$NFI" "$EXTRA"
    touch "$MEDIA/fullbackup/.timestamp"
 else
-   if [ $CREATE_ZIP != "none" ] ; then
+   if [ "$CREATE_ZIP" != "none" ] ; then
       log "Create zip archive..."
-      cd $MEDIA && $CREATE_ZIP -r $MEDIA/backup-$IMAGENAME-$SEARCH-$TSTAMP.zip . -i /$SEARCH/*
-      cd
+      ( cd "$MEDIA" && $CREATE_ZIP -r "$MEDIA/backup-$IMAGENAME-$SEARCH-$TSTAMP.zip" "$SEARCH" )
    fi
 fi
 #
@@ -973,14 +1014,15 @@ fi
 #
 log "Remove temporary files..."
 cleanup_mounts
-rm -rf "$SBI" 2>/dev/null
-rm -rf "$TBI" 2>/dev/null
+mb_safe_rmtree "$SBI" 2>/dev/null
+mb_safe_rmtree "$TBI" 2>/dev/null
 if [ -f "$NFI" ] ; then
     backup_made_nfi
 else
     echo $RED
     $SHOW "message15" 2>&1 | tee -a $LOGFILE # Image creation FAILED!
     echo $WHITE
+    exit 1
 fi
 #
 # The End
@@ -1007,7 +1049,7 @@ opkg list-installed >> $LOGFILE
 }
 
 ########################### Old Dreambox Situation ###########################
-if [ $SEARCH != "dm900" ] && [ $SEARCH != "dm920" ] && [ $SEARCH != "dm520" ] && [ $SEARCH != "dm525" ] && [ $SEARCH != "dm7080" ] && [ $SEARCH != "dm820" ] ; then
+if [ "$SEARCH" != "dm900" ] && [ "$SEARCH" != "dm920" ] && [ "$SEARCH" != "dm520" ] && [ "$SEARCH" != "dm525" ] && [ "$SEARCH" != "dm7080" ] && [ "$SEARCH" != "dm820" ] ; then
     old_dreambox_situation
 fi
 

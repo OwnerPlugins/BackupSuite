@@ -48,7 +48,8 @@ from Tools.LoadPixmap import LoadPixmap
 from Tools.Directories import resolveFilename, SCOPE_PLUGINS
 
 from . import _, __version__, LOGFILE, VERSIONFILE, ENIGMA2VERSIONFILE, OFGWRITE_BIN
-from . import scheduler     # defines config.plugins.backupsuite (settings, schedule)
+# defines config.plugins.backupsuite (settings, schedule)
+from . import scheduler
 
 
 PLUGIN_DIR = resolveFilename(SCOPE_PLUGINS, "Extensions/BackupSuite")
@@ -60,11 +61,26 @@ BACKUP_LOGNAME = basename(LOGFILE)          # copied into every backup folder
 NETWORK_FS = ("cifs", "nfs", "nfs4", "smbfs")
 
 DEVICE_PROFILES = {
-    "USB": {"icon": "usb.png", "script": "backupusb.sh", "desc": _("USB Storage")},
-    "MMC": {"icon": "mmc.png", "script": "backupmmc.sh", "desc": _("SD Card")},
-    "HDD": {"icon": "hdd.png", "script": "backuphdd.sh", "desc": _("Hard Disk")},
-    "NET": {"icon": "network.png", "script": "backupnet.sh", "desc": _("Network Storage")},
-    "RESTORE": {"icon": "restore.png", "script": "", "desc": _("Restore Backup")},
+    "USB": {
+        "icon": "usb.png",
+        "script": "backupusb.sh",
+        "desc": _("USB Storage")},
+    "MMC": {
+        "icon": "mmc.png",
+        "script": "backupmmc.sh",
+        "desc": _("SD Card")},
+    "HDD": {
+        "icon": "hdd.png",
+                "script": "backuphdd.sh",
+                "desc": _("Hard Disk")},
+    "NET": {
+        "icon": "network.png",
+        "script": "backupnet.sh",
+        "desc": _("Network Storage")},
+    "RESTORE": {
+        "icon": "restore.png",
+        "script": "",
+        "desc": _("Restore Backup")},
 }
 
 # Every file name ofgwrite may find in a backup folder
@@ -75,7 +91,15 @@ KNOWN_IMAGE_FILES = (
 )
 
 FORCE_MODE_MODELS = (
-    "h9", "h9se", "h9combo", "h9combose", "i55plus", "i55se", "h10", "hzero", "h8",
+    "h9",
+    "h9se",
+    "h9combo",
+    "h9combose",
+    "i55plus",
+    "i55se",
+    "h10",
+    "hzero",
+    "h8",
 )
 
 EMMC_BZ2_MODELS = (
@@ -90,7 +114,13 @@ HISI_UBI_MODELS = FORCE_MODE_MODELS + (
     "dinobotu55", "iziboxx3", "dinoboth265", "axashistwin", "protek4kx1",
 )
 HISI_BZ2_MODELS = (
-    "hd60", "hd61", "multibox", "multiboxse", "multiboxplus", "pulse4k", "pulse4kmini",
+    "hd60",
+    "hd61",
+    "multibox",
+    "multiboxse",
+    "multiboxplus",
+    "pulse4k",
+    "pulse4kmini",
 )
 OE_KERNEL_PREFIXES = (
     "fusion", "pure", "optimus", "force", "iqon", "ios", "tm2", "tmn", "tmt",
@@ -169,7 +199,8 @@ def get_backup_files_pattern():
     """Regex of the backup file extensions for this receiver."""
     model = get_box_type()
     if model.startswith("dm"):
-        if model.startswith("dm9") or model in ("dm520", "dm525", "dm7080", "dm820"):
+        if model.startswith("dm9") or model in (
+                "dm520", "dm525", "dm7080", "dm820"):
             return r"\.(xz)$"
         return r"\.(nfi)$"
     if model.startswith("vu"):
@@ -241,14 +272,21 @@ def get_mounted_network_shares():
         parts = line.split()
         if len(parts) < 3 or parts[2].lower() not in NETWORK_FS:
             continue
-        device, mountpoint, fstype = parts[0], parts[1].replace("\\040", " "), parts[2]
+        device, mountpoint, fstype = parts[0], parts[1].replace(
+            "\\040", " "), parts[2]
         if mountpoint in seen:
             continue
         seen.add(mountpoint)
         try:
             st = statvfs(mountpoint)
-            free_str = "{0:.2f} {1}".format(st.f_bavail * st.f_frsize / float(1024 ** 3), _("GB"))
-            total_str = "{0:.2f} {1}".format(st.f_blocks * st.f_frsize / float(1024 ** 3), _("GB"))
+            free_str = "{0:.2f} {1}".format(
+                st.f_bavail *
+                st.f_frsize /
+                float(
+                    1024 ** 3),
+                _("GB"))
+            total_str = "{0:.2f} {1}".format(
+                st.f_blocks * st.f_frsize / float(1024 ** 3), _("GB"))
         except OSError:
             free_str = total_str = _("Unknown")
         server = device.split("/")[-1].split(":")[0] or basename(mountpoint)
@@ -307,10 +345,18 @@ def get_device_type(device, description, mountpoint):
     if hw:
         return hw
     # 3. Whole words of the description
-    words = set(description.lower().replace("-", " ").replace("(", " ").replace(")", " ").split())
+    words = set(
+        description.lower().replace(
+            "-",
+            " ").replace(
+            "(",
+            " ").replace(
+                ")",
+            " ").split())
     if words & set(("mmc", "emmc", "sdcard", "card")):
         return "MMC"
-    if words & set(("sata", "hdd", "nvme", "ssd", "harddisk")) or "hard disk" in description.lower():
+    if words & set(("sata", "hdd", "nvme", "ssd", "harddisk")
+                   ) or "hard disk" in description.lower():
         return "HDD"
     return "USB"
 
@@ -367,7 +413,24 @@ def get_lang():
 
 CMDLINE_FILE = "/proc/cmdline"
 KERNELDEV_FILE = "/sys/firmware/devicetree/base/chosen/kerneldev"
-EXTERNAL_DISK_MAJORS = (8, 65, 66, 67, 68, 69, 70, 71, 128, 129, 130, 131, 132, 133, 134, 135, 259)
+EXTERNAL_DISK_MAJORS = (
+    8,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    128,
+    129,
+    130,
+    131,
+    132,
+    133,
+    134,
+    135,
+    259)
 
 
 def read_first_line(path):
@@ -408,7 +471,8 @@ def folder_multiboot(root="/"):
         return "NeoBoot: {0}".format(name or "?")
     omb = join(root, "omb/open-multiboot")
     try:
-        candidates = [f for f in listdir(omb) if f == ".selected" or f.endswith("-selected")]
+        candidates = [f for f in listdir(
+            omb) if f == ".selected" or f.endswith("-selected")]
     except OSError:
         candidates = []
     for f in candidates:
@@ -430,17 +494,22 @@ def root_is_external():
 def get_multiboot_info():
     """Describe the running image: eMMC/NAND slot and folder multiboots."""
     params = cmdline_params()
-    info = {"slot": "", "folder": folder_multiboot(), "external": root_is_external(),
-            "kexec": params.get("kexec") == "1"}
+    info = {
+        "slot": "",
+        "folder": folder_multiboot(),
+        "external": root_is_external(),
+        "kexec": params.get("kexec") == "1"}
     subdir = params.get("rootsubdir", "")
     kerneldev = read_first_line(KERNELDEV_FILE)
     root = params.get("root", "")
     if subdir:
         number = trailing_number(subdir)
-        info["slot"] = _("Slot {0} ({1})").format(number, subdir) if number else subdir
+        info["slot"] = _("Slot {0} ({1})").format(
+            number, subdir) if number else subdir
     elif kerneldev.startswith("emmcflash0."):
         part = kerneldev.split(".", 1)[1]
-        info["slot"] = _("Slot {0} ({1})").format(trailing_number(part) or "1", part)
+        info["slot"] = _("Slot {0} ({1})").format(
+            trailing_number(part) or "1", part)
     elif root.startswith("/dev/sd") and not info["folder"]:
         info["slot"] = _("Image on USB ({0})").format(root)
     return info
@@ -451,13 +520,15 @@ def multiboot_backup_note(info):
         return "\n\n" + _(
             "You are running an image started by {0}.\n"
             "The backup will contain THIS image with the kernel that is now in the flash. "
-            "To back up the image in flash, boot the flash image first.").format(info["folder"])
+            "To back up the image in flash, boot the flash image first.").format(
+            info["folder"])
     if info["external"] and not info["slot"]:
         return "\n\n" + _(
             "The running image is on an external device (multiboot such as Barry Allen).\n"
             "The backup will contain this image with the kernel that is now in the flash.")
     if info["slot"]:
-        return "\n\n" + _("Running image: {0}.\nThe backup will contain this image with its own kernel.").format(info["slot"])
+        return "\n\n" + \
+            _("Running image: {0}.\nThe backup will contain this image with its own kernel.").format(info["slot"])
     return ""
 
 
@@ -470,7 +541,8 @@ def multiboot_flash_note(info):
     if info["slot"]:
         return "\n\n" + _(
             "Multiboot: ofgwrite will write into the slot that is running now: {0}.\n"
-            "To flash another slot, boot that slot first.").format(info["slot"])
+            "To flash another slot, boot that slot first.").format(
+            info["slot"])
     return ""
 
 
@@ -500,7 +572,8 @@ def has_mounts_below(path):
         with open("/proc/mounts") as f:
             for line in f:
                 parts = line.split()
-                if len(parts) > 1 and parts[1].replace("\\040", " ").startswith(prefix):
+                if len(parts) > 1 and parts[1].replace(
+                        "\\040", " ").startswith(prefix):
                     return True
     except (IOError, OSError):
         return True     # unknown: be safe
@@ -534,7 +607,8 @@ def backup_command(script_path, device_type, media_path, retfile=None):
         media=shell_quote(media_path))
     if retfile:
         # Console does not return the exit code: keep it in retfile
-        cmd = "rm -f {ret}; {cmd}; echo $? > {ret}".format(ret=shell_quote(retfile), cmd=cmd)
+        cmd = "rm -f {ret}; {cmd}; echo $? > {ret}".format(
+            ret=shell_quote(retfile), cmd=cmd)
     return cmd
 
 
@@ -560,10 +634,18 @@ def failure_message():
     return error_msg
 
 
-def start_console_backup(session, device_type, media_path, script_path, callback=None):
+def start_console_backup(
+        session,
+        device_type,
+        media_path,
+        script_path,
+        callback=None):
     """Run a backup in a console the user can watch and stop."""
     if not media_path or not isdir(media_path):
-        session.open(MessageBox, _("No device type selected"), MessageBox.TYPE_ERROR)
+        session.open(
+            MessageBox,
+            _("No device type selected"),
+            MessageBox.TYPE_ERROR)
         return False
     if not script_path or not isfile(script_path):
         session.open(
@@ -573,7 +655,10 @@ def start_console_backup(session, device_type, media_path, script_path, callback
             MessageBox.TYPE_ERROR)
         return False
     if backup_running():
-        session.open(MessageBox, _("Another backup is already running."), MessageBox.TYPE_ERROR)
+        session.open(
+            MessageBox,
+            _("Another backup is already running."),
+            MessageBox.TYPE_ERROR)
         return False
     write_enigma2_version()
     cmd = backup_command(script_path, device_type, media_path, RETFILE)
@@ -592,8 +677,20 @@ class BackupConsole(Console):
     The backup scripts trap SIGINT: they unmount the read-only bind of /,
     remove their work folder and exit with an error."""
 
-    def __init__(self, session, title="Console", cmdlist=None, finishedCallback=None, closeOnSuccess=False):
-        Console.__init__(self, session, title, cmdlist, finishedCallback, closeOnSuccess)
+    def __init__(
+            self,
+            session,
+            title="Console",
+            cmdlist=None,
+            finishedCallback=None,
+            closeOnSuccess=False):
+        Console.__init__(
+            self,
+            session,
+            title,
+            cmdlist,
+            finishedCallback,
+            closeOnSuccess)
         self.skinName = "Console"
         self.stopped = False
         self["BackupStopActions"] = ActionMap(
@@ -608,8 +705,11 @@ class BackupConsole(Console):
     def askStop(self):
         if self.isRunning() and not self.stopped:
             self.session.openWithCallback(
-                self.stopConfirmed, MessageBox,
-                _("Do you really want to stop the backup?"), MessageBox.TYPE_YESNO, default=False)
+                self.stopConfirmed,
+                MessageBox,
+                _("Do you really want to stop the backup?"),
+                MessageBox.TYPE_YESNO,
+                default=False)
 
     def stopConfirmed(self, answer):
         if answer and self.isRunning():
@@ -669,8 +769,13 @@ class BackupStart(Screen):
             '<screen position="center,center" size="{0},{1}" title="Backup Suite">'
             '<widget name="devicelist" position="{2},{2}" size="{3},{4}" scrollbarMode="showOnDemand" />'
             '{5}</screen>'.format(
-                scale(1040), scale(470), scale(10), scale(1020), scale(400),
-                buttons_skin(scale(425))))
+                scale(1040),
+                scale(470),
+                scale(10),
+                scale(1020),
+                scale(400),
+                buttons_skin(
+                    scale(425))))
         Screen.__init__(self, session)
         self.session = session
         self["key_red"] = StaticText(_("Close"))
@@ -691,7 +796,8 @@ class BackupStart(Screen):
                 "displayHelp": self.show_help,
                 "info": self.keyInfo,
             }, -1)
-        self["setupActions"] = ActionMap(["MenuActions"], {"menu": self.openSetup}, -1)
+        self["setupActions"] = ActionMap(
+            ["MenuActions"], {"menu": self.openSetup}, -1)
         self.onLayoutFinish.append(self.layoutFinished)
 
     def layoutFinished(self):
@@ -704,22 +810,33 @@ class BackupStart(Screen):
         for dev in get_available_backup_devices():
             label = "{0} ({1})".format(dev["desc"], basename(dev["path"]))
             self.devicelist.append(
-                (_("Backup to {0}").format(label), dev["icon"], dev["type"], dev["path"], dev["script"]))
+                (_("Backup to {0}").format(label),
+                 dev["icon"],
+                    dev["type"],
+                    dev["path"],
+                    dev["script"]))
 
         if get_mounted_network_shares():
             net = DEVICE_PROFILES["NET"]
             self.devicelist.append(
-                (_("Backup to Network"), icon_path(net["icon"]), "NET", None, join(SCRIPTS_DIR, net["script"])))
+                (_("Backup to Network"), icon_path(
+                    net["icon"]), "NET", None, join(
+                    SCRIPTS_DIR, net["script"])))
 
         restore = DEVICE_PROFILES["RESTORE"]
         self.devicelist.append(
-            (_("Restore Backup"), icon_path(restore["icon"]), "RESTORE", None, ""))
+            (_("Restore Backup"), icon_path(
+                restore["icon"]), "RESTORE", None, ""))
         self.devicelist.append(
-            (_("Settings and automatic backup"), icon_path("f_menu.png"), "SETUP", None, ""))
+            (_("Settings and automatic backup"),
+             icon_path("f_menu.png"),
+             "SETUP",
+             None,
+             ""))
 
         lst = self["devicelist"]
-        self["devicelist"].setList([
-            BackupDeviceEntryComponent(e, lst.item_height, lst.item_width) for e in self.devicelist])
+        self["devicelist"].setList([BackupDeviceEntryComponent(
+            e, lst.item_height, lst.item_width) for e in self.devicelist])
 
     def getSelectedEntry(self):
         selection = self["devicelist"].getCurrent()
@@ -742,15 +859,26 @@ class BackupStart(Screen):
             self.openSetup()
         elif dev_type in ("USB", "MMC", "HDD"):
             self.session.openWithCallback(
-                lambda result: result and self.execute_backup(dev_type, dev_path, script),
+                lambda result: result and self.execute_backup(
+                    dev_type,
+                    dev_path,
+                    script),
                 MessageBox,
                 _("Do you want to make a backup to {0}?\n\nThis may take several minutes.").format(
-                    "{0} ({1})".format(DEVICE_PROFILES[dev_type]["desc"], dev_path))
-                + multiboot_backup_note(get_multiboot_info()),
+                    "{0} ({1})".format(
+                        DEVICE_PROFILES[dev_type]["desc"],
+                        dev_path)) +
+                multiboot_backup_note(
+                    get_multiboot_info()),
                 MessageBox.TYPE_YESNO)
 
     def execute_backup(self, device_type, media_path, script_path):
-        start_console_backup(self.session, device_type, media_path, script_path, self.console_closed)
+        start_console_backup(
+            self.session,
+            device_type,
+            media_path,
+            script_path,
+            self.console_closed)
 
     def start_net_backup(self):
         shares = get_mounted_network_shares()
@@ -779,13 +907,14 @@ class BackupStart(Screen):
                 makedirs(backup_dir)
             except OSError as e:
                 self.session.open(
-                    MessageBox,
-                    _("Could not create backup directory: {0}\nError: {1}").format(backup_dir, e),
-                    MessageBox.TYPE_ERROR)
+                    MessageBox, _("Could not create backup directory: {0}\nError: {1}").format(
+                        backup_dir, e), MessageBox.TYPE_ERROR)
                 return
         if not access(backup_dir, W_OK):
             self.session.open(
-                MessageBox, _("No write permission for: {0}").format(backup_dir), MessageBox.TYPE_ERROR)
+                MessageBox,
+                _("No write permission for: {0}").format(backup_dir),
+                MessageBox.TYPE_ERROR)
             return
         self.session.openWithCallback(
             lambda result: result and self.execute_backup(
@@ -800,7 +929,10 @@ class BackupStart(Screen):
         self.session.open(BackupSuiteSetup)
 
     def startRestore(self):
-        self.session.open(FlashImageConfig, "/media/", get_backup_files_pattern())
+        self.session.open(
+            FlashImageConfig,
+            "/media/",
+            get_backup_files_pattern())
 
     def show_help(self):
         self.session.open(BackupHelpScreen)
@@ -815,7 +947,11 @@ class BackupStart(Screen):
         except (IOError, OSError, ValueError):
             retval = 0
         if retval != 0:
-            self.session.open(MessageBox, failure_message(), MessageBox.TYPE_ERROR, timeout=30)
+            self.session.open(
+                MessageBox,
+                failure_message(),
+                MessageBox.TYPE_ERROR,
+                timeout=30)
 
 
 # --------------------------------------------------------------------------
@@ -852,7 +988,10 @@ class FlashImageConfig(Screen):
             pattern = r"\.(" + extensions + "|zip)$"
         else:
             pattern = r"\.(zip)$"
-        self.filelist = FileList(curdir, matchingPattern=pattern, enableWrapAround=True)
+        self.filelist = FileList(
+            curdir,
+            matchingPattern=pattern,
+            enableWrapAround=True)
         self.filelist.onSelectionChanged.append(self.selectionChanged)
         self["filelist"] = self.filelist
         self["FilelistActions"] = ActionMap(
@@ -912,8 +1051,9 @@ class FlashImageConfig(Screen):
     def keyGreen(self):
         if self.green_action != "flash" or not self.get_flash_dir():
             return
-        message = _("Warning!\nUse at your own risk! Make always a backup before use!\n"
-                    "Don't use it if you use multiple ubi volumes in ubi layer!") + "\n"
+        message = _(
+            "Warning!\nUse at your own risk! Make always a backup before use!\n"
+            "Don't use it if you use multiple ubi volumes in ubi layer!") + "\n"
         if self.dualboot:
             message += _("\nYou are using dual multiboot!")
         message += multiboot_flash_note(get_multiboot_info())
@@ -930,7 +1070,8 @@ class FlashImageConfig(Screen):
             return
         model = get_box_type()
         backup_files = expected_image_files(model)
-        no_backup_files = [f for f in KNOWN_IMAGE_FILES if f not in backup_files]
+        no_backup_files = [
+            f for f in KNOWN_IMAGE_FILES if f not in backup_files]
 
         text = _("Select parameter for start flash!\n")
         text += _("For flashing your receiver files are needed:\n")
@@ -942,8 +1083,8 @@ class FlashImageConfig(Screen):
         except OSError:
             names = []
         for name in sorted(names):
-            matches = name in backup_files or any(
-                p.startswith("*") and name.endswith(p[1:]) for p in backup_files)
+            matches = name in backup_files or any(p.startswith(
+                "*") and name.endswith(p[1:]) for p in backup_files)
             if matches:
                 text += "\n" + _("  {0} (maybe ok)").format(name)
                 self.founds = True
@@ -999,7 +1140,8 @@ class FlashImageConfig(Screen):
             return
         label, args, writes = options[ret]
         flash_dir = self.get_flash_dir()
-        cmd = " ".join([shell_quote(OFGWRITE_BIN)] + args + [shell_quote(flash_dir)])
+        cmd = " ".join([shell_quote(OFGWRITE_BIN)] +
+                       args + [shell_quote(flash_dir)])
         if writes:
             cmd += " > /dev/null 2>&1 &"
 
@@ -1008,10 +1150,11 @@ class FlashImageConfig(Screen):
         elif not writes:
             info = _("Show only found image and mtd partitions.\n")
         else:
-            info = (_("ofgwrite will stop enigma2 now to run the flash.\n")
-                    + _("Your STB will freeze during the flashing process.\n")
-                    + _("Please: DO NOT reboot your STB and turn off the power.\n")
-                    + _("The image or kernel will be flashing and auto booted in few minutes.\n"))
+            info = (
+                _("ofgwrite will stop enigma2 now to run the flash.\n") +
+                _("Your STB will freeze during the flashing process.\n") +
+                _("Please: DO NOT reboot your STB and turn off the power.\n") +
+                _("The image or kernel will be flashing and auto booted in few minutes.\n"))
         message = "printf '%s\\n' " + shell_quote("\n" + info)
         self.session.open(Console, _("Flashing: ") + label, [message, cmd])
 
@@ -1020,12 +1163,17 @@ class FlashImageConfig(Screen):
         if self.yellow_action == "unzip":
             filename = self.get_selected_path()
             self.session.openWithCallback(
-                self.doUnzip, MessageBox,
-                _("Do you really want to unpack {0} ?").format(basename(filename)),
+                self.doUnzip,
+                MessageBox,
+                _("Do you really want to unpack {0} ?").format(
+                    basename(filename)),
                 MessageBox.TYPE_YESNO)
         elif self.yellow_action == "info":
             self.session.open(
-                MessageBox, "\n\n\n{0}".format(self.getBackupInfo()), MessageBox.TYPE_INFO)
+                MessageBox,
+                "\n\n\n{0}".format(
+                    self.getBackupInfo()),
+                MessageBox.TYPE_INFO)
 
     def getBackupInfo(self):
         try:
@@ -1041,7 +1189,8 @@ class FlashImageConfig(Screen):
         target = self.filelist.getCurrentDirectory()
         if not zip_path or not target:
             return
-        cmd = "unzip -o {0} -d {1}".format(shell_quote(zip_path), shell_quote(target))
+        cmd = "unzip -o {0} -d {1}".format(
+            shell_quote(zip_path), shell_quote(target))
         self.session.openWithCallback(self.refresh, Console, _("Unzip"), [cmd])
 
     def refresh(self, *args):
@@ -1052,8 +1201,10 @@ class FlashImageConfig(Screen):
     def keyBlue(self):
         if self.blue_action == "delete":
             self.session.openWithCallback(
-                self.confirmedDelete, MessageBox,
-                _("You are about to delete this backup:\n\n{0}\nContinue?").format(self.getBackupInfo()),
+                self.confirmedDelete,
+                MessageBox,
+                _("You are about to delete this backup:\n\n{0}\nContinue?").format(
+                    self.getBackupInfo()),
                 MessageBox.TYPE_YESNO)
 
     def confirmedDelete(self, answer):
@@ -1061,13 +1212,17 @@ class FlashImageConfig(Screen):
             return
         backup_dir = self.get_selected_path().rstrip("/")
         if not is_safe_backup_dir(backup_dir):
-            self.session.open(MessageBox, _("Error: invalid backup folder"), MessageBox.TYPE_ERROR)
+            self.session.open(
+                MessageBox,
+                _("Error: invalid backup folder"),
+                MessageBox.TYPE_ERROR)
             return
         cmds = [
             "printf '%s\\n' " + shell_quote("Removing backup:   " + basename(backup_dir)),
             "rm -rf {0}".format(shell_quote(realpath(backup_dir))),
         ]
-        self.session.openWithCallback(self.refresh, Console, _("Delete backup"), cmds)
+        self.session.openWithCallback(
+            self.refresh, Console, _("Delete backup"), cmds)
 
 
 # --------------------------------------------------------------------------
@@ -1185,7 +1340,8 @@ def main(session, **kwargs):
 
 
 def Plugins(path, **kwargs):
-    description = "{0}, {1}".format(_("Backup and restore your image"), __version__)
+    description = "{0}, {1}".format(
+        _("Backup and restore your image"), __version__)
     return [
         PluginDescriptor(
             name="BackupSuite",
@@ -1200,7 +1356,9 @@ def Plugins(path, **kwargs):
             fnc=main),
         PluginDescriptor(
             name="BackupSuite",
-            where=[PluginDescriptor.WHERE_AUTOSTART, PluginDescriptor.WHERE_SESSIONSTART],
+            where=[
+                PluginDescriptor.WHERE_AUTOSTART,
+                PluginDescriptor.WHERE_SESSIONSTART],
             fnc=scheduler.autostart,
             wakeupfnc=scheduler.get_next_wakeup),
         PluginDescriptor(

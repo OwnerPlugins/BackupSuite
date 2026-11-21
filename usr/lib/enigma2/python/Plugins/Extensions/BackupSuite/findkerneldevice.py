@@ -96,7 +96,8 @@ def find_kernel_device_udevadm(kernelpartition):
             try:
                 with open(uevent, "r") as f:
                     for line in f:
-                        if line.strip() == "PARTNAME={0}".format(kernelpartition):
+                        if line.strip() == "PARTNAME={0}".format(
+                                kernelpartition):
                             return "/dev/{0}".format(partition)
             except (IOError, OSError):
                 continue
